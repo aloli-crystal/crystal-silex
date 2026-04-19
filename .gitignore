@@ -1,0 +1,11 @@
+/bin/
+/.shards/
+/lib/
+*.dwarf
+
+# macOS
+.DS_Store
+
+# Images générées par les exemples
+/examples/*.img
+/seed.img

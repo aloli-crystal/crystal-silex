@@ -1,0 +1,232 @@
+= silex — Architecture
+:toc: left
+:toc-title: Table des matières
+:toclevels: 3
+:source-highlighter: rouge
+:icons: font
+
+Ce document décrit le plan disque FAT12 tel qu'implémenté par silex,
+et les décisions techniques qui s'y attachent.
+
+== Périmètre
+
+[cols="1,3"]
+|===
+| silex fait | silex ne fait pas
+
+| Écrire des images FAT12 en mémoire (32 Ko à 16 Mo).
+| Écrire du FAT16 ou FAT32 (hors usage seed disk).
+
+| Gérer les entrées VFAT LFN pour les noms > 8.3.
+| Gérer des sous-répertoires (cloud-init NoCloud n'en a pas besoin).
+
+| Produire une étiquette de volume (BPB + entrée racine).
+| Gérer des attributs étendus, des ACL, des streams alternatifs.
+
+| Relire une image FAT12 pour les tests (`FatImage.read`).
+| Être un parseur robuste de production (récupération d'erreurs, fragmentation complexe).
+|===
+
+== Décisions clés
+
+=== ADR-001 — FAT12 uniquement (Accepted)
+
+*Contexte.* Le cas d'usage principal est la génération de seed disks
+cloud-init, typiquement 100 Ko à 1 Mo. FAT12 gère jusqu'à 4084 clusters
+utiles, soit 16 Mo avec des clusters de 4 Ko. Suffisant, et plus simple
+que FAT16/FAT32 (pas d'*info sector*, pas de chaînage sur 16 ou 32 bits).
+
+*Décision.* silex n'implémente que FAT12. Les constructeurs refusent
+les tailles hors plage (< 32 Ko, > 16 Mo).
+
+=== ADR-002 — Entrées VFAT LFN obligatoires pour cloud-init (Accepted)
+
+*Contexte.* Le datasource NoCloud de cloud-init cherche des fichiers
+*littéralement* nommés `user-data` et `meta-data`. Ces noms font
+9 caractères chacun, donc dépassent le format 8.3 classique de FAT.
+
+*Décision.* silex écrit *systématiquement* une série d'entrées VFAT LFN
+(Long File Name) dès qu'un nom ne rentre pas sans perte en 8.3. Chaque
+entrée LFN :
+
+. Est marquée avec l'attribut `0x0F` (`READ_ONLY | HIDDEN | SYSTEM | VOLUME_ID`).
+. Contient 13 caractères UTF-16LE répartis dans les octets (1, 3, 5, 7, 9),
+  (14, 16, 18, 20, 22, 24) et (28, 30).
+. Porte la somme de contrôle de l'entrée 8.3 associée (algorithme
+  Microsoft : rotation + addition sur 8 bits).
+. Est terminée par un caractère `\0` puis paddée par `0xFFFF`.
+
+L'entrée 8.3 est un alias unique (`USER-D~1`, `META-D~1`, etc.).
+
+=== ADR-003 — Deux copies de FAT (Accepted)
+
+*Contexte.* La spec FAT autorise 1 ou 2 copies. Les implémentations
+BSD, Linux et macOS s'attendent à 2 dans la très grande majorité des cas
+(« `num_fats = 2` » est la valeur par défaut et attendue).
+
+*Décision.* silex écrit toujours 2 copies identiques de la FAT.
+
+=== ADR-004 — Répertoire racine fixe de 112 entrées (Accepted)
+
+*Contexte.* En FAT12/16, le répertoire racine a une taille fixe définie
+par le BPB (`root_entries`). Chaque entrée fait 32 octets, donc 112
+entrées = 7 secteurs (3584 octets). C'est largement suffisant pour
+cloud-init (2 à 3 fichiers, avec LFN).
+
+*Décision.* `root_entries = 112`. Un fichier avec LFN consomme
+`1 + ceil(len / 13)` entrées ; avec 112 entrées, on peut loger plus
+de 30 fichiers cloud-init type.
+
+=== ADR-005 — Horodatage figé (Accepted)
+
+*Contexte.* Un horodatage "maintenant" rend l'image non reproductible :
+deux exécutions produisent des octets différents, ce qui complique les
+tests et la validation par empreinte.
+
+*Décision.* silex inscrit un horodatage fixe (`2026-04-18 12:00:00`).
+Une API d'override pourra être ajoutée si un besoin concret émerge.
+
+=== ADR-006 — Licence et dépôt (Accepted)
+
+* Licence : *MIT*, conforme à la convention des shards Crystal.
+* Organisation GitHub : https://github.com/aloli-crystal[aloli-crystal].
+* Nom du dépôt : `crystal-silex`, nom du shard : `silex`.
+* Branche par défaut : `production`, convention Aloli.
+* Langue des messages de commit : français.
+
+== Plan disque
+
+----
+offset            contenu
+------            --------
+0                 Secteur d'amorçage (BPB + signature 0x55AA)
+reserved_sectors  FAT #1       (sectors_per_fat secteurs)
++ sectors_per_fat FAT #2       (copie identique)
++ sectors_per_fat Répertoire racine (112 entrées × 32 octets = 7 secteurs)
++ 7               Zone de données (clusters 2..N)
+----
+
+Avec un boîtier 128 Ko / sectors_per_cluster = 1 :
+
+[cols="1,1,3"]
+|===
+| Élément          | Secteurs | Octets
+| Total            | 256      | 131 072
+| Amorçage         | 1        | 512
+| FAT × 2          | 2        | 1 024
+| Racine           | 7        | 3 584
+| Données          | 246      | 125 952
+|===
+
+== Encodage FAT12
+
+Chaque entrée fait 12 bits. Deux entrées tiennent sur 3 octets :
+
+----
+octet 0    octet 1    octet 2
+[aaaaaaaa] [bbbbAAAA] [BBBBBBBB]
+            \__/\__/
+           haut A  bas B
+
+entrée N   = bits [AAAA aaaaaaaa]
+entrée N+1 = bits [BBBBBBBB bbbb]
+----
+
+Valeurs réservées :
+
+[cols="1,3"]
+|===
+| Valeur    | Sens
+| `0x000`   | Cluster libre
+| `0x001`   | Réservé
+| `0x002..0xFEF` | Cluster suivant dans la chaîne
+| `0xFF0..0xFF6` | Réservé
+| `0xFF7`   | Cluster mauvais
+| `0xFF8..0xFFF` | Fin de chaîne (EOC)
+|===
+
+silex utilise `0xFFF` comme marqueur de fin de chaîne.
+
+== Entrée de répertoire 8.3
+
+32 octets, champs :
+
+[cols="1,1,3"]
+|===
+| Offset | Taille | Contenu
+| 0      | 8      | Nom (ASCII, padding par espace, majuscules)
+| 8      | 3      | Extension (idem)
+| 11     | 1      | Attributs (`0x20` = archive, `0x08` = volume ID, `0x0F` = LFN)
+| 12     | 1      | NT reserved
+| 13     | 1      | Dixièmes de seconde création
+| 14..15 | 2      | Heure de création (HMS 2s)
+| 16..17 | 2      | Date de création (YMD)
+| 18..19 | 2      | Date du dernier accès
+| 20..21 | 2      | Cluster haut (FAT12/16 = 0)
+| 22..23 | 2      | Heure de dernière modification
+| 24..25 | 2      | Date de dernière modification
+| 26..27 | 2      | Cluster bas
+| 28..31 | 4      | Taille (octets)
+|===
+
+== Entrée de répertoire LFN
+
+Même taille (32 octets), structure différente :
+
+[cols="1,1,3"]
+|===
+| Offset | Taille | Contenu
+| 0      | 1      | Numéro de séquence (OR 0x40 si dernière)
+| 1..10  | 10     | 5 caractères UTF-16LE
+| 11     | 1      | Attribut `0x0F`
+| 12     | 1      | Type (toujours 0)
+| 13     | 1      | Somme de contrôle du nom 8.3 associé
+| 14..25 | 12     | 6 caractères UTF-16LE
+| 26..27 | 2      | Cluster (toujours 0)
+| 28..31 | 4      | 2 caractères UTF-16LE
+|===
+
+Les entrées LFN sont stockées dans l'ordre *inverse* (numéro le plus haut
+en tête), puis l'entrée 8.3 qui termine la séquence.
+
+== Vérification
+
+=== macOS
+
+[source,sh]
+----
+crystal run examples/cloud_init_seed.cr
+hdiutil attach -nomount examples/seed.img        # /dev/diskX
+diskutil info /dev/diskX                         # MS-DOS FAT12, CIDATA
+mount -t msdos /dev/diskX /tmp/seed
+ls /tmp/seed                                     # meta-data  user-data
+----
+
+=== Linux
+
+[source,sh]
+----
+sudo mount -o loop examples/seed.img /mnt/seed
+ls /mnt/seed                                     # meta-data  user-data
+----
+
+=== FreeBSD
+
+[source,sh]
+----
+sudo mdconfig -a -t vnode -f examples/seed.img   # /dev/mdX
+sudo mount -t msdosfs /dev/mdX /mnt/seed
+----
+
+== Feuille de route
+
+=== v0.2 (envisagé)
+
+* API `add_file` avec horodatage explicite (pour reproductibilité).
+* Option `sectors_per_cluster` overridable pour les images > 2 Mo.
+* Sous-répertoires (au cas par cas, si un besoin émerge).
+
+=== v1.0 (non engagé)
+
+* Support FAT16 / FAT32 si un besoin non-NoCloud apparaît.
+* Fuzzing de `FatImage.read` face à des images malformées.

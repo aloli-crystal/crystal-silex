@@ -1,0 +1,108 @@
+= silex
+:toc: left
+:toc-title: Table des matières
+:toclevels: 3
+:source-highlighter: rouge
+:icons: font
+
+Writer Crystal pur pour images de systèmes de fichiers FAT12 minimales.
+Usage principal : générer des seed disks cloud-init NoCloud (`user-data` /
+`meta-data`) sans dépendre d'un outil externe.
+
+[NOTE]
+====
+*silex* = silex en français, la première pierre taillée. Thème minéral,
+rustique, aligné avec https://github.com/aloli-crystal/crystal-beryl[crystal-beryl].
+Zéro dépendance, zéro outil système requis : ni `mkfs.vfat`, ni `xorriso`,
+ni `hdiutil`, ni `genisoimage`.
+====
+
+== Pourquoi silex ?
+
+Provisionner des VM avec cloud-init NoCloud demande un disque seed contenant
+`user-data` et `meta-data`. Les approches classiques appellent
+`genisoimage`, `xorriso` ou `mkfs.vfat`, qui sont soit absents des images
+minimales, soit divergents entre Linux, macOS et FreeBSD.
+
+silex génère le disque en pur Crystal, en mémoire, et produit un `Bytes`
+que vous écrivez où bon vous semble. Portable, reproductible, autonome.
+
+== Caractéristiques
+
+* *Pur Crystal* : aucune dépendance runtime, aucun binaire externe.
+* *FAT12* : suffisant pour les seed disks (32 Ko à 16 Mo).
+* *LFN VFAT* : noms de fichiers longs (jusqu'à 255 caractères), indispensable
+  pour cloud-init qui exige `user-data` et `meta-data` littéralement.
+* *Étiquette de volume* : `CIDATA` (ou autre) inscrite dans le BPB et dans
+  le répertoire racine.
+* *Petit et lisible* : un seul fichier source, `src/silex/fat_image.cr`.
+
+== Installation
+
+Dans votre `shard.yml` :
+
+[source,yaml]
+----
+dependencies:
+  silex:
+    github: aloli-crystal/crystal-silex
+    version: ~> 0.1
+----
+
+Puis `shards install`.
+
+== Démarrage rapide
+
+[source,crystal]
+----
+require "silex"
+
+image = Silex::FatImage.new(size_bytes: 128 * 1024, label: "CIDATA")
+image.add_file("meta-data", "instance-id: iid-local01\nlocal-hostname: test\n")
+image.add_file("user-data", "#cloud-config\nssh_authorized_keys:\n  - ssh-ed25519 AAAA... me@host\n")
+File.write("seed.img", image.to_slice)
+----
+
+Sous macOS, vérifiez immédiatement :
+
+[source,sh]
+----
+hdiutil attach -nomount seed.img
+# => /dev/disk4 (MS-DOS FAT12 / CIDATA)
+mkdir -p /tmp/seed && mount -t msdos /dev/disk4 /tmp/seed
+ls /tmp/seed
+# meta-data  user-data
+----
+
+Sous Linux :
+
+[source,sh]
+----
+sudo mount -o loop seed.img /mnt/seed
+ls /mnt/seed
+# meta-data  user-data
+----
+
+L'exemple complet est dans link:examples/cloud_init_seed.cr[`examples/cloud_init_seed.cr`].
+
+== Limites
+
+* FAT12 uniquement (pas de FAT16 ni FAT32). C'est voulu : FAT12 couvre
+  tous les cas d'usage seed disk (< 16 Mo).
+* Répertoire racine uniquement, pas de sous-répertoires. Cloud-init
+  NoCloud n'en a pas besoin.
+* Pas de gestion d'attributs étendus, pas de dates réelles (horodatage
+  figé à la date du projet pour reproductibilité).
+* `Silex::FatImage.read` est destiné aux tests, pas à une utilisation
+  générale (ne gère pas les sous-répertoires ni la récupération d'erreurs).
+
+== Statut
+
+Projet en phase initiale (v0.1 — writer fonctionnel, validé macOS).
+
+* link:ARCHITECTURE.adoc[ARCHITECTURE.adoc] — décisions techniques.
+* link:CHANGELOG.adoc[CHANGELOG.adoc] — historique des changements.
+
+== Licence
+
+MIT. Voir link:LICENSE[LICENSE].

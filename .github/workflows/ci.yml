@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [production, development]
+  pull_request:
+    branches: [production, development]
+
+jobs:
+  lint:
+    name: Format Crystal
+    runs-on: ubuntu-latest
+    container:
+      image: crystallang/crystal:1.19.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vérifie le formatage
+        run: crystal tool format --check src/ spec/
+
+  spec-linux:
+    name: Specs (Linux)
+    runs-on: ubuntu-latest
+    container:
+      image: crystallang/crystal:1.19.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installe les shards
+        run: shards install
+      - name: Exécute les specs
+        run: crystal spec
+      - name: Compile l'exemple cloud-init
+        run: crystal build examples/cloud_init_seed.cr -o bin/cloud_init_seed
+
+  spec-freebsd:
+    name: Specs (FreeBSD 15)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lance les specs dans une VM FreeBSD 15
+        uses: cross-platform-actions/action@v1.0.0
+        with:
+          operating_system: freebsd
+          version: '15.0'
+          shell: sh
+          run: |
+            sudo pkg install -y crystal shards
+            shards install
+            crystal spec
+            crystal build examples/cloud_init_seed.cr -o bin/cloud_init_seed

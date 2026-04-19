@@ -1,0 +1,46 @@
+= Changelog
+:toc: left
+:toclevels: 2
+
+Toutes les modifications notables de ce projet sont documentées dans ce fichier.
+
+Le format s'inspire de https://keepachangelog.com/fr/1.1.0/[Keep a Changelog]
+et ce projet suit https://semver.org/lang/fr/[Semantic Versioning].
+
+== [Non publié]
+
+=== Ajouté
+
+==== Fondations du projet
+
+* Squelette initial (`shard.yml`, `LICENSE` MIT, README bilingue FR/EN).
+* Convention Aloli : branche par défaut `production`, messages de commit
+  en français, licence MIT, auteurs `ALOLI sas`.
+
+==== Writer FAT12 (MVP)
+
+* `Silex::FatImage` : création d'images FAT12 en mémoire (32 Ko à 16 Mo).
+* Secteur d'amorçage BPB conforme à la spec Microsoft / ECMA-107 (signature
+  `0x55AA`, OEM `SILEX1.0`, étiquette de volume, identifiant de série).
+* Deux copies de FAT écrites (convention historique), encodage 12 bits paqueté
+  correct.
+* Répertoire racine de taille fixe (112 entrées).
+* Entrées VFAT *Long File Name* pour supporter les noms > 8.3 (indispensable
+  pour les fichiers cloud-init `user-data` et `meta-data`).
+* Génération automatique d'un alias 8.3 unique (`USER-D~1`, `META-D~1`, etc.)
+  avec somme de contrôle LFN correcte.
+* `Silex::FatImage.read` : parseur symétrique pour les tests aller-retour.
+
+==== Tests et exemples
+
+* 18 specs Crystal (initialisation, `add_file`, sérialisation, round-trip).
+* Exemple exécutable `examples/cloud_init_seed.cr` qui produit un
+  `seed.img` de 128 Ko lisible par `hdiutil attach` (macOS) et par
+  `mount -t vfat` (Linux).
+* Validation manuelle : image montée sous macOS, `meta-data` et `user-data`
+  visibles avec leur nom exact et leur contenu intact.
+
+==== Intégration continue
+
+* CI GitHub Actions : format Crystal + specs sur Linux et FreeBSD 15
+  via `cross-platform-actions/action`.

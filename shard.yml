@@ -1,0 +1,14 @@
+name: silex
+version: 0.1.0
+
+description: >
+  Writer Crystal pur pour images de systèmes de fichiers FAT12 minimales.
+  Usage principal : générer des seed disks cloud-init NoCloud (user-data / meta-data)
+  sans aucun outil externe (ni mkfs.vfat, ni xorriso, ni hdiutil, ni genisoimage).
+
+authors:
+  - ALOLI sas <philippe@aloli.fr>
+
+crystal: ">= 1.19.1"
+
+license: MIT
