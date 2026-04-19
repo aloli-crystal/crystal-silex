@@ -29,7 +29,7 @@ jobs:
       - name: Exécute les specs
         run: crystal spec
       - name: Compile l'exemple cloud-init
-        run: crystal build examples/cloud_init_seed.cr -o bin/cloud_init_seed
+        run: mkdir -p bin && crystal build examples/cloud_init_seed.cr -o bin/cloud_init_seed
 
   spec-freebsd:
     name: Specs (FreeBSD 15)
