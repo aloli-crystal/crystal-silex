@@ -12,7 +12,7 @@ Primary use case: generate cloud-init NoCloud seed disks
 [NOTE]
 ====
 *silex* = flint in French, the first chiseled stone. Mineral, rustic theme,
-aligned with https://github.com/aloli-crystal/crystal-beryl[crystal-beryl].
+aligned with https://github.com/aloli-crystal/beryl[beryl].
 Zero dependencies, zero system tools required: no `mkfs.vfat`, no `xorriso`,
 no `hdiutil`, no `genisoimage`.
 ====

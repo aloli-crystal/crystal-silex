@@ -7,6 +7,14 @@ Toutes les modifications notables de ce projet sont documentées dans ce fichier
 Le format s'inspire de https://keepachangelog.com/fr/1.1.0/[Keep a Changelog]
 et ce projet suit https://semver.org/lang/fr/[Semantic Versioning].
 
+== 0.1.1 (29 avril 2026)
+
+=== Modifié
+
+* **Repo GitHub renommé** `aloli-crystal/crystal-silex` → `aloli-crystal/silex`
+  (convention de nommage Aloli : créations sans préfixe `crystal-`).
+  Les anciens liens redirigent automatiquement.
+
 == [Non publié]
 
 === Ajouté

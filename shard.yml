@@ -1,5 +1,5 @@
 name: silex
-version: 0.1.0
+version: 0.1.1
 
 description: >
   Writer Crystal pur pour images de systèmes de fichiers FAT12 minimales.

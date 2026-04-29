@@ -12,7 +12,7 @@ Usage principal : générer des seed disks cloud-init NoCloud (`user-data` /
 [NOTE]
 ====
 *silex* = silex en français, la première pierre taillée. Thème minéral,
-rustique, aligné avec https://github.com/aloli-crystal/crystal-beryl[crystal-beryl].
+rustique, aligné avec https://github.com/aloli-crystal/beryl[beryl].
 Zéro dépendance, zéro outil système requis : ni `mkfs.vfat`, ni `xorriso`,
 ni `hdiutil`, ni `genisoimage`.
 ====
