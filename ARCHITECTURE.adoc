@@ -90,7 +90,7 @@ Une API d'override pourra être ajoutée si un besoin concret émerge.
 
 * Licence : *MIT*, conforme à la convention des shards Crystal.
 * Organisation GitHub : https://github.com/aloli-crystal[aloli-crystal].
-* Nom du dépôt : `crystal-silex`, nom du shard : `silex`.
+* Nom du dépôt : `silex`, nom du shard : `silex`.
 * Branche par défaut : `production`, convention Aloli.
 * Langue des messages de commit : français.
 

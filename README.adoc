@@ -45,7 +45,7 @@ In your `shard.yml`:
 ----
 dependencies:
   silex:
-    github: aloli-crystal/crystal-silex
+    github: aloli-crystal/silex
     version: ~> 0.1
 ----
 

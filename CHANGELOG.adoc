@@ -11,7 +11,7 @@ et ce projet suit https://semver.org/lang/fr/[Semantic Versioning].
 
 === Modifié
 
-* **Repo GitHub renommé** `aloli-crystal/crystal-silex` → `aloli-crystal/silex`
+* **Repo GitHub renommé** `aloli-crystal/silex` → `aloli-crystal/silex`
   (convention de nommage Aloli : créations sans préfixe `crystal-`).
   Les anciens liens redirigent automatiquement.
 
